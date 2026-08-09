@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx-s1
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+    depends_on:
+      - transport-api
+
+    restart: always
+
+  transport-api:
+    build:
+      context: ../../..
+      dockerfile: nodes/s1/backend/api/transport-api/Dockerfile
+
+    container_name: transport-api
+
+    environment:
+      NODE_NAME: s1
+      APP_NAME: transport-api
+      NODE_IP: 192.168.200.128
+
+    ports:
+      - "5000:5000"
+    
+    volumes:
+      - /proc:/host/proc:ro
+      - /etc:/host/etc:ro
+
+    restart: always

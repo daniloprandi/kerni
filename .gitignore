@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Logs
+logs/
+*.log
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# PostgreSQL runtime data
+
+nodes/*/data/
+.venv/
+.git_corrupt/
