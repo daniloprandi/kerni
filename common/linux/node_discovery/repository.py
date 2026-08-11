@@ -1,5 +1,11 @@
+# Node Discovery Repository.
+
+# Stores and retrieves node information from PostgreSQL.
+
 from common.database import get_connection
 
+
+# Get a node by hostname.
 
 def get_by_hostname(hostname):
 
@@ -22,6 +28,33 @@ def get_by_hostname(hostname):
 
   return node
 
+
+# Get all registered nodes.
+
+def get_all():
+
+  con = get_connection()
+  cur = con.cursor()
+
+  cur.execute(
+    """
+    SELECT
+      id,
+      hostname,
+      ip_addr
+    FROM cmdb.nodes
+    """
+  )
+
+  nodes = cur.fetchall()
+
+  cur.close()
+  con.close()
+
+  return nodes
+
+
+# Insert a new node.
 
 def insert(node):
 
@@ -69,6 +102,8 @@ def insert(node):
   cur.close()
   con.close()
 
+
+# Update an existing node.
 
 def update(node):
 
