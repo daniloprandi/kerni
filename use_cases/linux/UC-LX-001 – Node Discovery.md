@@ -214,7 +214,7 @@ Durante l'esecuzione il contenuto del dizionario cresce progressivamente.
 Dopo il recupero dell'hostname:
 
 {
-    "hostname": "serverlab-01",
+    "hostname": "s1",
     "ip_addr": ...,
     "os_name": ...,
     "os_v": ...,
@@ -225,7 +225,7 @@ Dopo il recupero dell'hostname:
 Dopo il recupero dell'indirizzo IP:
 
 {
-    "hostname": "serverlab-01",
+    "hostname": "s1",
     "ip_addr": "192.168.200.128",
     "os_name": ...,
     "os_v": ...,
@@ -236,7 +236,7 @@ Dopo il recupero dell'indirizzo IP:
 Al termine della discovery:
 
 {
-    "hostname": "serverlab-01",
+    "hostname": "s1",
     "ip_addr": "192.168.200.128",
     "os_name": "Linux",
     "os_v": "6.8.0-60-generic",
@@ -368,7 +368,7 @@ Modello dati completato
 Al termine della discovery il dizionario contiene tutte le informazioni necessarie alla sincronizzazione.
 
 node = {
-    "hostname": "serverlab-01",
+    "hostname": "s1",
     "ip_addr": "192.168.200.128",
     "os_name": "Linux",
     "os_v": "6.8.0-60-generic",
