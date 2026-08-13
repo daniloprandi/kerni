@@ -1,5 +1,8 @@
+import sys
 from flask import Flask
 from threading import Thread
+
+sys.path.insert(0, "/var/www/kerni")
 
 from routes.health import health_bp
 from routes.discovery import listen_for_ping

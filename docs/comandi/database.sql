@@ -2,10 +2,15 @@ TRUNCATE TABLE cmdb.nodes RESTART IDENTITY CASCADE;
 
 TRUNCATE TABLE tcpip.transport_connections RESTART IDENTITY CASCADE;
 
+TRUNCATE TABLE tcpip.ping RESTART IDENTITY CASCADE;
+
 --
 
 SELECT * FROM cmdb.nodes
 ORDER BY id ASC 
 
 SELECT * FROM tcpip.transport_connections
+ORDER BY id ASC 
+
+SELECT * FROM tcpip.ping
 ORDER BY id ASC 
