@@ -7,12 +7,12 @@ from common.linux.node_discovery import discovery
 
 def register_ping(src_ip, dest_ip):
   # Apre una connessione al database.
-  connection = get_connection()
+  con = get_connection()
 
   try:
     # Inserisce il ping oppure aggiorna last_seen
     # se la coppia src_ip / dest_ip esiste già.
-    with connection.cursor() as cursor:
+    with con.cursor() as cursor:
       cursor.execute(
         """
         INSERT INTO tcpip.ping (src_ip, dest_ip)
@@ -24,11 +24,11 @@ def register_ping(src_ip, dest_ip):
       )
 
     # Conferma la modifica al database.
-    connection.commit()
+    con.commit()
 
   finally:
     # Chiude la connessione al database.
-    connection.close()
+    con.close()
 
 
 def listen_for_ping():

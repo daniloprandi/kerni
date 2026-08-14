@@ -43,6 +43,7 @@ ip route
 
 ping -c 3 192.168.200.131
 
+-- *** si popolano PING e NODES ***
 
 ###############################################################################
 # 3. VERIFICA SSH VERSO DATA-NODE
@@ -72,7 +73,6 @@ sudo systemctl status kerni.service --no-pager
 -- risultato atteso:
 
 Active: active (running)
-
 
 -- se non è attivo:
 
