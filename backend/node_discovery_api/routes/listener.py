@@ -1,5 +1,5 @@
-import socket
-import struct
+import subprocess
+import re
 
 from common.database import get_connection
 from common.linux.node_discovery import discovery
@@ -32,39 +32,43 @@ def register_ping(src_ip, dest_ip):
 
 
 def listen_for_ping():
-  # Crea un raw socket per ricevere pacchetti ICMP.
-  raw_socket = socket.socket(
-    socket.AF_INET,
-    socket.SOCK_RAW,
-    socket.IPPROTO_ICMP
+  # Avvia tcpdump per osservare solamente gli ICMP Echo Request.
+  command = [
+    "tcpdump",
+    "-i", "any",
+    "-n",
+    "-l",
+    "icmp[icmptype] == icmp-echo",
+  ]
+
+  process = subprocess.Popen(
+    command,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.DEVNULL,
+    text=True
   )
 
-  # Rimane in ascolto dei pacchetti ICMP.
-  while True:
-    # Riceve il pacchetto e l'indirizzo del mittente.
-    packet, address = raw_socket.recvfrom(65535)
-
-    # Prende i primi 20 byte dell'header IPv4.
-    ip_header = packet[:20]
-
-    # Estrae l'indirizzo IP sorgente.
-    source_ip = socket.inet_ntoa(
-      struct.unpack("!4s", ip_header[12:16])[0]
+  # Legge continuamente l'output di tcpdump.
+  for line in process.stdout:
+    match = re.search(
+      r"IP (\d+\.\d+\.\d+\.\d+) > (\d+\.\d+\.\d+\.\d+): ICMP",
+      line
     )
 
-    # Estrae l'indirizzo IP destinazione.
-    destination_ip = socket.inet_ntoa(
-      struct.unpack("!4s", ip_header[16:20])[0]
-    )
+    if match:
+      source_ip = match.group(1)
+      destination_ip = match.group(2)
 
-    # Mostra il ping osservato.
-    print(
-      f"PING: {source_ip} -> {destination_ip}",
-      flush=True
-    )
+      # Mostra il ping osservato.
+      print(
+        f"PING: {source_ip} -> {destination_ip}",
+        flush=True
+      )
 
-    # Registra il ping nel database.
-    register_ping(source_ip, destination_ip)
+      # Registra il ping nel database.
+      register_ping(source_ip, destination_ip)
 
-    # Avvia la discovery del nodo che ha generato il ping.
-    discovery.run(source_ip)
+      # Avvia la discovery solamente se il ping
+      # proviene da un nodo remoto.
+      if source_ip != "192.168.200.130":
+        discovery.run(source_ip)

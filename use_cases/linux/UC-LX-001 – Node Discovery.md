@@ -262,16 +262,24 @@ listener
    |
    +-- register_ping(source_ip, destination_ip)
    |
-   +-- discovery.run(source_ip)
-             |
-             +-- hostname.get(host)
-             +-- ip.get(host)
-             +-- os.get_name(host)
-             +-- os.get_version(host)
-             +-- kernel.get(host)
-             +-- repository.get_by_hostname()
-             +-- repository.insert() / repository.update()
-             +-- JSON finale
+   +-- source_ip != IP locale?
+          |
+          +-- SI
+          |    |
+          |    +-- discovery.run(source_ip)
+          |             |
+          |             +-- hostname.get(host)
+          |             +-- ip.get(host)
+          |             +-- os.get_name(host)
+          |             +-- os.get_version(host)
+          |             +-- kernel.get(host)
+          |             +-- repository.get_by_hostname()
+          |             +-- repository.insert() / repository.update()
+          |             +-- JSON finale
+          |
+          +-- NO
+               |
+               +-- nessuna discovery
 
 5. Costruzione del modello dati
 
@@ -499,19 +507,13 @@ Kerni
     v
 errore
 
-Un errore di discovery non deve interrompere il listener ICMP.
+La ricezione di un pacchetto ICMP e la discovery sono due fasi distinte.
 
-Il listener deve:
+Il listener registra l'evento ICMP prima di tentare la discovery del nodo remoto.
 
-registrare l'evento ICMP;
+Un errore durante la discovery SSH deve essere considerato un errore relativo al singolo nodo e non deve essere interpretato come un errore dell'evento ICMP.
 
-tentare la discovery;
-
-gestire un eventuale errore;
-
-continuare ad ascoltare nuovi pacchetti.
-
-Il fallimento della discovery di un singolo nodo non deve compromettere l'osservazione degli altri nodi.
+La gestione dell'errore e la continuità del listener devono essere garantite dall'implementazione del servizio.
 
 9. Esempio completo
 
@@ -584,13 +586,15 @@ Un successivo ping dello stesso nodo produce:
 
 Il caso d'uso UC-LX-001 è completato quando:
 
-Kerni osserva un pacchetto ICMP proveniente da un nodo remoto;
+Kerni osserva un pacchetto ICMP;
 
-identifica il source_ip;
+identifica source_ip e destination_ip;
 
-registra l'evento ICMP;
+registra l'evento nella tabella tcpip.ping;
 
-utilizza l'indirizzo IP come destinazione della discovery SSH;
+verifica se source_ip identifica un nodo remoto rispetto a Kerni;
+
+se il nodo è remoto, utilizza source_ip per avviare la discovery SSH;
 
 acquisisce hostname, IP, sistema operativo e kernel;
 
@@ -600,16 +604,26 @@ verifica la presenza nella CMDB;
 
 esegue INSERT oppure UPDATE;
 
-produce il risultato della discovery;
+produce il risultato della discovery.
 
-mantiene attivo il listener anche in caso di errore della discovery di un singolo nodo.
+Un pacchetto ICMP generato da Kerni verso un nodo remoto viene registrato, ma non attiva la Node Discovery.
 
 Il percorso complessivo è:
 
-ICMP inbound
+ICMP
      |
      v
-Identificazione del nodo
+Identificazione source/destination
+     |
+     v
+Registrazione evento in tcpip.ping
+     |
+     v
+source_ip è remoto?
+     |
+     +---- NO ----> nessuna discovery
+     |
+     SI
      |
      v
 SSH
