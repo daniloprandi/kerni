@@ -43,7 +43,7 @@ ip route
 
 ping -c 3 192.168.200.131
 
--- *** si popolano PING e NODES ***
+-- si popolano le tabella nodes e ping
 
 ###############################################################################
 # 3. VERIFICA SSH VERSO DATA-NODE

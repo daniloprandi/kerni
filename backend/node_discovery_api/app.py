@@ -1,12 +1,10 @@
 import sys
 from flask import Flask
 from threading import Thread
+from backend.node_discovery_api.routes.health import health_bp
+from backend.node_discovery_api.routes.listener import listen_for_ping
 
 sys.path.insert(0, "/var/www/kerni")
-
-from routes.health import health_bp
-from routes.discovery import listen_for_ping
-
 
 app = Flask(__name__)
 
