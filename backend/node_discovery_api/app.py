@@ -2,7 +2,7 @@ import sys
 from flask import Flask
 from threading import Thread
 from backend.node_discovery_api.routes.health import health_bp
-from backend.node_discovery_api.routes.listener import listen_for_ping
+from common.linux.tcp_ip.internet_layer.ping import listen_for_ping
 
 sys.path.insert(0, "/var/www/kerni")
 

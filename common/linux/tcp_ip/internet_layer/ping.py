@@ -1,6 +1,5 @@
 import subprocess
 import re
-
 from common.database import get_connection
 from common.linux.node_discovery import discovery
 
@@ -10,15 +9,11 @@ def register_ping(src_ip, dest_ip):
   con = get_connection()
 
   try:
-    # Inserisce il ping oppure aggiorna last_seen
-    # se la coppia src_ip / dest_ip esiste già.
     with con.cursor() as cursor:
       cursor.execute(
         """
         INSERT INTO tcpip.ping (src_ip, dest_ip)
         VALUES (%s, %s)
-        ON CONFLICT (src_ip, dest_ip)
-        DO UPDATE SET last_seen = CURRENT_TIMESTAMP
         """,
         (src_ip, dest_ip)
       )
@@ -65,7 +60,7 @@ def listen_for_ping():
         flush=True
       )
 
-      # Registra il ping nel database.
+      # Registra ogni singolo ping nel database.
       register_ping(source_ip, destination_ip)
 
       # Avvia la discovery solamente se il ping
