@@ -2,7 +2,6 @@
 
 # Coordinates the inspection of the Linux Transport Layer.
 
-from common.linux.node_discovery import repository as node_repository
 from common.linux.remote import ssh
 
 from .parser import parse_transport
@@ -12,163 +11,131 @@ from .parser import parse_unix
 from . import repository
 
 
-# Inspect the Linux Transport Layer.
+# Inspect the Linux Transport Layer of a specific node.
+def inspect_transport_layer(host, node_id):
 
-def inspect_transport_layer():
+  # Build the SSH host.
+  ssh_host = f"dprandi@{host}"
 
-  # Get all registered nodes.
-
-  nodes = node_repository.get_all()
-
-  # Store every transport connection.
-
+  # Store all connections discovered on the node.
   connections = []
 
-  # Inspect every registered node.
+  # Read the Linux TCP table.
+  tcp_data = ssh.execute(
+    ssh_host,
+    "cat /proc/net/tcp"
+  )
 
-  for node in nodes:
-
-    # Get the node information.
-
-    node_id = node[0]
-    ip_addr = node[2]
-
-    # Build the SSH host.
-
-    host = f"dprandi@{ip_addr}"
-
-    # Read the Linux TCP table.
-
-    tcp_data = ssh.execute(
-      host,
-      "cat /proc/net/tcp"
+  # Parse the Linux TCP table.
+  connections.extend(
+    parse_transport(
+      tcp_data.splitlines(),
+      "TCP"
     )
+  )
 
-    # Parse the Linux TCP table.
+  # Read the Linux TCP IPv6 table.
+  tcp6_data = ssh.execute(
+    ssh_host,
+    "cat /proc/net/tcp6"
+  )
 
-    connections.extend(
-      parse_transport(
-        tcp_data.splitlines(),
-        "TCP"
-      )
+  # Parse the Linux TCP IPv6 table.
+  connections.extend(
+    parse_transport6(
+      tcp6_data.splitlines(),
+      "TCP6"
     )
+  )
 
-    # Read the Linux TCP6 table.
+  # Read the Linux UDP table.
+  udp_data = ssh.execute(
+    ssh_host,
+    "cat /proc/net/udp"
+  )
 
-    tcp6_data = ssh.execute(
-      host,
-      "cat /proc/net/tcp6"
+  # Parse the Linux UDP table.
+  connections.extend(
+    parse_transport(
+      udp_data.splitlines(),
+      "UDP"
     )
+  )
 
-    # Parse the Linux TCP6 table.
+  # Read the Linux UDP IPv6 table.
+  udp6_data = ssh.execute(
+    ssh_host,
+    "cat /proc/net/udp6"
+  )
 
-    connections.extend(
-      parse_transport6(
-        tcp6_data.splitlines(),
-        "TCP6"
-      )
+  # Parse the Linux UDP IPv6 table.
+  connections.extend(
+    parse_transport6(
+      udp6_data.splitlines(),
+      "UDP6"
     )
+  )
 
-    # Read the Linux UDP table.
+  # Read the Linux RAW table.
+  raw_data = ssh.execute(
+    ssh_host,
+    "cat /proc/net/raw"
+  )
 
-    udp_data = ssh.execute(
-      host,
-      "cat /proc/net/udp"
+  # Parse the Linux RAW table.
+  connections.extend(
+    parse_transport(
+      raw_data.splitlines(),
+      "RAW"
     )
+  )
 
-    # Parse the Linux UDP table.
+  # Read the Linux RAW IPv6 table.
+  raw6_data = ssh.execute(
+    ssh_host,
+    "cat /proc/net/raw6"
+  )
 
-    connections.extend(
-      parse_transport(
-        udp_data.splitlines(),
-        "UDP"
-      )
+  # Parse the Linux RAW IPv6 table.
+  connections.extend(
+    parse_transport6(
+      raw6_data.splitlines(),
+      "RAW6"
     )
+  )
 
-    # Read the Linux UDP6 table.
+  # Read the Linux UNIX socket table.
+  unix_data = ssh.execute(
+    ssh_host,
+    "cat /proc/net/unix"
+  )
 
-    udp6_data = ssh.execute(
-      host,
-      "cat /proc/net/udp6"
+  # Parse the Linux UNIX socket table.
+  connections.extend(
+    parse_unix(
+      unix_data.splitlines(),
+      "UNIX"
     )
+  )
 
-    # Parse the Linux UDP6 table.
+  # Associate every connection with the discovered node.
+  for connection in connections:
+    connection["node_id"] = node_id
 
-    connections.extend(
-      parse_transport6(
-        udp6_data.splitlines(),
-        "UDP6"
-      )
-    )
-
-    # Read the Linux RAW table.
-
-    raw_data = ssh.execute(
-      host,
-      "cat /proc/net/raw"
-    )
-
-    # Parse the Linux RAW table.
-
-    connections.extend(
-      parse_transport(
-        raw_data.splitlines(),
-        "RAW"
-      )
-    )
-
-    # Read the Linux RAW6 table.
-
-    raw6_data = ssh.execute(
-      host,
-      "cat /proc/net/raw6"
-    )
-
-    # Parse the Linux RAW6 table.
-
-    connections.extend(
-      parse_transport6(
-        raw6_data.splitlines(),
-        "RAW6"
-      )
-    )
-
-    # Read the Linux UNIX table.
-
-    unix_data = ssh.execute(
-      host,
-      "cat /proc/net/unix"
-    )
-
-    # Parse the Linux UNIX table.
-
-    connections.extend(
-      parse_unix(
-        unix_data.splitlines(),
-        "UNIX"
-      )
-    )
-
-    # Associate every connection to the node.
-
-    for connection in connections:
-      connection["node_id"] = node_id
-
-  # Store all connections.
-
+  # Store all discovered connections in PostgreSQL.
   repository.insert_all(connections)
 
-  # Return the inspection result.
-
+  # Return the discovered connections.
   return {
     "connections": connections
   }
 
 
 # Run the Transport Layer inspection.
+def run(host, node_id):
 
-def run():
-
-  # Execute the inspection.
-
-  return inspect_transport_layer()
+  # Execute the inspection for the specified node.
+  return inspect_transport_layer(
+    host,
+    node_id
+  )
