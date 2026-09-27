@@ -8,8 +8,8 @@ User=dprandi
 WorkingDirectory=/var/www/kerni
 ExecStart=/var/www/kerni/.venv/bin/python -m backend.node_discovery_api.app
 Restart=always
-AmbientCapabilities=CAP_NET_RAW
-CapabilityBoundingSet=CAP_NET_RAW
+AmbientCapabilities=CAP_NET_RAW CAP_SYS_PTRACE
+CapabilityBoundingSet=CAP_NET_RAW CAP_SYS_PTRACE
 
 [Install]
 WantedBy=multi-user.target
