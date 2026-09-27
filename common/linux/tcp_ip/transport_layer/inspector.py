@@ -1,8 +1,9 @@
 # Transport Layer Inspector.
-
+#
 # Coordinates the inspection of the Linux Transport Layer.
 
 from common.linux.remote import ssh
+from common.linux.kernel.socket.inspector import inspect_socket_inode
 
 from .parser import parse_transport
 from .parser import parse_transport6
@@ -120,7 +121,29 @@ def inspect_transport_layer(host, node_id):
 
   # Associate every connection with the discovered node.
   for connection in connections:
+
     connection["node_id"] = node_id
+
+  # Associate socket inodes with processes and file descriptors.
+  for connection in connections:
+
+    # Get the socket inode.
+    inode = connection.get("inode")
+
+    # Skip connections without an inode.
+    if not inode:
+      continue
+
+    # Inspect the socket inode.
+    socket_matches = inspect_socket_inode(inode)
+
+    # Skip sockets that cannot be associated with a process.
+    if not socket_matches:
+      continue
+
+    # Add the process and file descriptor information.
+    connection["pid"] = socket_matches[0]["pid"]
+    connection["fd"] = socket_matches[0]["fd"]
 
   # Store all discovered connections in PostgreSQL.
   repository.insert_all(connections)
