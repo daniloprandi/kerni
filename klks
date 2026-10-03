@@ -1,0 +1,61 @@
+[1mdiff --git a/common/linux/tcp_ip/internet_layer/ping.py b/common/linux/tcp_ip/internet_layer/ping.py[m
+[1mindex f868f64..d1aff3b 100644[m
+[1m--- a/common/linux/tcp_ip/internet_layer/ping.py[m
+[1m+++ b/common/linux/tcp_ip/internet_layer/ping.py[m
+[36m@@ -4,6 +4,9 @@[m [mfrom common.database import get_connection[m
+ from common.linux.node_discovery import discovery[m
+ [m
+ [m
+[32m+[m[32mping_counts = {}[m
+[32m+[m
+[32m+[m
+ def register_ping(src_ip, dest_ip):[m
+   # Apre una connessione al database.[m
+   con = get_connection()[m
+[36m@@ -50,20 +53,30 @@[m [mdef listen_for_ping():[m
+       line[m
+     )[m
+ [m
+[31m-    if match:[m
+[31m-      source_ip = match.group(1)[m
+[31m-      destination_ip = match.group(2)[m
+[32m+[m[32m    if not match:[m
+[32m+[m[32m      continue[m
+ [m
+[31m-      # Mostra il ping osservato.[m
+[31m-      print([m
+[31m-        f"PING: {source_ip} -> {destination_ip}",[m
+[31m-        flush=True[m
+[31m-      )[m
+[32m+[m[32m    source_ip = match.group(1)[m
+[32m+[m[32m    destination_ip = match.group(2)[m
+[32m+[m
+[32m+[m[32m    # Mostra il ping osservato.[m
+[32m+[m[32m    print([m
+[32m+[m[32m      f"PING: {source_ip} -> {destination_ip}",[m
+[32m+[m[32m      flush=True[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    # Registra ogni singolo ping nel database.[m
+[32m+[m[32m    register_ping(source_ip, destination_ip)[m
+[32m+[m
+[32m+[m[32m    # Ignora il traffico generato dal nodo locale.[m
+[32m+[m[32m    if source_ip == "192.168.200.130":[m
+[32m+[m[32m      continue[m
+ [m
+[31m-      # Registra ogni singolo ping nel database.[m
+[31m-      register_ping(source_ip, destination_ip)[m
+[32m+[m[32m    # Incrementa il contatore dei ping ricevuti dal nodo remoto.[m
+[32m+[m[32m    ping_counts[source_ip] = ping_counts.get(source_ip, 0) + 1[m
+ [m
+[31m-      # Avvia la discovery solamente se il ping[m
+[31m-      # proviene da un nodo remoto.[m
+[31m-      if source_ip != "192.168.200.130":[m
+[31m-        discovery.run(source_ip)[m
+\ No newline at end of file[m
+[32m+[m[32m    # Avvia la discovery ogni tre ping.[m
+[32m+[m[32m    if ping_counts[source_ip] == 3:[m
+[32m+[m[32m      discovery.run(source_ip)[m
+[32m+[m[32m      ping_counts[source_ip] = 0[m
+[32m+[m[32mEOF[m
+\ No newline at end of file[m

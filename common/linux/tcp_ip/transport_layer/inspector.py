@@ -1,9 +1,4 @@
-# Transport Layer Inspector.
-#
-# Coordinates the inspection of the Linux Transport Layer.
-
 from common.linux.remote import ssh
-from common.linux.kernel.socket.inspector import inspect_socket_inode
 
 from .parser import parse_transport
 from .parser import parse_transport6
@@ -12,22 +7,54 @@ from .parser import parse_unix
 from . import repository
 
 
-# Inspect the Linux Transport Layer of a specific node.
 def inspect_transport_layer(host, node_id):
-
-  # Build the SSH host.
+  # Costruisce l'host SSH remoto.
   ssh_host = f"dprandi@{host}"
 
-  # Store all connections discovered on the node.
+  # Legge tutti i socket e associa inode, PID e file descriptor
+  # con una sola connessione SSH.
+  socket_output = ssh.execute(
+    ssh_host,
+    r"""
+    for pid in /proc/[0-9]*; do
+      for fd in "$pid"/fd/*; do
+        target=$(readlink "$fd" 2>/dev/null)
+        case "$target" in
+          socket:\[*\])
+            inode=$(echo "$target" | tr -cd '0-9')
+            echo "${pid##*/} ${fd##*/} $inode"
+            ;;
+        esac
+      done
+    done
+    """
+  )
+
+  # Costruisce una mappa inode -> processo/file descriptor.
+  socket_map = {}
+
+  for line in socket_output.splitlines():
+    fields = line.split()
+
+    if len(fields) != 3:
+      continue
+
+    pid, fd, inode = fields
+
+    socket_map[int(inode)] = {
+      "pid": int(pid),
+      "fd": int(fd)
+    }
+
+  # Lista delle connessioni.
   connections = []
 
-  # Read the Linux TCP table.
+  # Legge TCP.
   tcp_data = ssh.execute(
     ssh_host,
     "cat /proc/net/tcp"
   )
 
-  # Parse the Linux TCP table.
   connections.extend(
     parse_transport(
       tcp_data.splitlines(),
@@ -35,13 +62,12 @@ def inspect_transport_layer(host, node_id):
     )
   )
 
-  # Read the Linux TCP IPv6 table.
+  # Legge TCP IPv6.
   tcp6_data = ssh.execute(
     ssh_host,
     "cat /proc/net/tcp6"
   )
 
-  # Parse the Linux TCP IPv6 table.
   connections.extend(
     parse_transport6(
       tcp6_data.splitlines(),
@@ -49,13 +75,12 @@ def inspect_transport_layer(host, node_id):
     )
   )
 
-  # Read the Linux UDP table.
+  # Legge UDP.
   udp_data = ssh.execute(
     ssh_host,
     "cat /proc/net/udp"
   )
 
-  # Parse the Linux UDP table.
   connections.extend(
     parse_transport(
       udp_data.splitlines(),
@@ -63,13 +88,12 @@ def inspect_transport_layer(host, node_id):
     )
   )
 
-  # Read the Linux UDP IPv6 table.
+  # Legge UDP IPv6.
   udp6_data = ssh.execute(
     ssh_host,
     "cat /proc/net/udp6"
   )
 
-  # Parse the Linux UDP IPv6 table.
   connections.extend(
     parse_transport6(
       udp6_data.splitlines(),
@@ -77,13 +101,12 @@ def inspect_transport_layer(host, node_id):
     )
   )
 
-  # Read the Linux RAW table.
+  # Legge RAW.
   raw_data = ssh.execute(
     ssh_host,
     "cat /proc/net/raw"
   )
 
-  # Parse the Linux RAW table.
   connections.extend(
     parse_transport(
       raw_data.splitlines(),
@@ -91,13 +114,12 @@ def inspect_transport_layer(host, node_id):
     )
   )
 
-  # Read the Linux RAW IPv6 table.
+  # Legge RAW IPv6.
   raw6_data = ssh.execute(
     ssh_host,
     "cat /proc/net/raw6"
   )
 
-  # Parse the Linux RAW IPv6 table.
   connections.extend(
     parse_transport6(
       raw6_data.splitlines(),
@@ -105,13 +127,12 @@ def inspect_transport_layer(host, node_id):
     )
   )
 
-  # Read the Linux UNIX socket table.
+  # Legge UNIX.
   unix_data = ssh.execute(
     ssh_host,
     "cat /proc/net/unix"
   )
 
-  # Parse the Linux UNIX socket table.
   connections.extend(
     parse_unix(
       unix_data.splitlines(),
@@ -119,45 +140,28 @@ def inspect_transport_layer(host, node_id):
     )
   )
 
-  # Associate every connection with the discovered node.
+  # Associa ogni connessione al nodo.
   for connection in connections:
-
     connection["node_id"] = node_id
 
-  # Associate socket inodes with processes and file descriptors.
-  for connection in connections:
-
-    # Get the socket inode.
+    # Associa inode, PID e file descriptor.
     inode = connection.get("inode")
+    socket = socket_map.get(inode)
 
-    # Skip connections without an inode.
-    if not inode:
-      continue
+    if socket:
+      connection["pid"] = socket["pid"]
+      connection["fd"] = socket["fd"]
 
-    # Inspect the socket inode.
-    socket_matches = inspect_socket_inode(inode)
-
-    # Skip sockets that cannot be associated with a process.
-    if not socket_matches:
-      continue
-
-    # Add the process and file descriptor information.
-    connection["pid"] = socket_matches[0]["pid"]
-    connection["fd"] = socket_matches[0]["fd"]
-
-  # Store all discovered connections in PostgreSQL.
+  # Salva le connessioni.
   repository.insert_all(connections)
 
-  # Return the discovered connections.
   return {
     "connections": connections
   }
 
 
-# Run the Transport Layer inspection.
 def run(host, node_id):
-
-  # Execute the inspection for the specified node.
+  # Avvia la discovery del Transport Layer.
   return inspect_transport_layer(
     host,
     node_id

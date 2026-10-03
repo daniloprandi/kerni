@@ -4,13 +4,17 @@ from common.linux.node_discovery import os
 from common.linux.node_discovery import kernel
 from common.linux.node_discovery import repository
 
-from common.linux.tcp_ip.transport_layer import inspector
+from common.linux.kernel.process import inspector as process_inspector
+from common.linux.kernel.process import repository as process_repository
+from common.linux.kernel.socket import inspector as socket_inspector
+from common.linux.kernel.socket import repository as socket_repository
+from common.linux.tcp_ip.transport_layer import inspector as transport_inspector
 
 import json
 
 
 def run(host):
-  # Raccoglie le informazioni del nodo remoto tramite SSH.
+  # Raccoglie le informazioni del nodo remoto.
   node = {
     "hostname": hostname.get(host),
     "ip_addr": ip.get(host),
@@ -22,40 +26,72 @@ def run(host):
 
   # Verifica se il nodo è già registrato nella CMDB.
   if repository.get_by_hostname(node["hostname"]):
-    # Aggiorna le informazioni del nodo esistente.
     repository.update(node)
-
-    # Imposta lo stato della discovery.
     node["status"] = "already_registered"
   else:
-    # Inserisce il nuovo nodo nella CMDB.
     repository.insert(node)
-
-    # Imposta lo stato della discovery.
     node["status"] = "registered"
 
-  # Recupera il record del nodo appena registrato o aggiornato.
+  # Recupera il node_id.
   node_record = repository.get_by_hostname(node["hostname"])
-
-  # Estrae il node_id dal record.
   node_id = node_record[0]
 
-  # Avvia automaticamente l'ispezione del Transport Layer.
-  #
-  # La discovery del nodo è quindi il punto di partenza
-  # per la successiva raccolta delle connessioni TCP.
+  # Discovery dei processi.
   try:
-    inspector.inspect_transport_layer(host, node_id)
+    processes = process_inspector.inspect_processes(host)
+
+    process_repository.insert_all(
+      processes,
+      node_id
+    )
+
+    print(
+      f"Processes discovered: {len(processes)}",
+      flush=True
+    )
+
   except Exception as error:
-    # Un errore nel Transport Layer non deve interrompere
-    # la Node Discovery o il listener ICMP.
+    print(
+      f"Process discovery failed for {host}: {error}",
+      flush=True
+    )
+
+  # Discovery dei socket.
+  try:
+    sockets = socket_inspector.inspect_sockets(host)
+
+    socket_repository.insert_all(
+      sockets,
+      node_id
+    )
+
+    print(
+      f"Sockets discovered: {len(sockets)}",
+      flush=True
+    )
+
+  except Exception as error:
+    print(
+      f"Socket discovery failed for {host}: {error}",
+      flush=True
+    )
+
+  # Discovery del Transport Layer.
+  try:
+    transport_inspector.inspect_transport_layer(
+      host,
+      node_id
+    )
+
+  except Exception as error:
     print(
       f"Transport Layer discovery failed for {host}: {error}",
       flush=True
     )
 
   # Mostra il risultato della Node Discovery.
-  print(json.dumps(node, indent=2))
+  print(
+    json.dumps(node, indent=2)
+  )
 
-  # Restituisce le informazioni del nodo.
   return node

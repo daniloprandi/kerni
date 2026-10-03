@@ -1,129 +1,96 @@
-import os
 import re
 
-
-# Riconosce i link simbolici dei file descriptor associati ai socket.
-# Esempio:
-# socket:[16931]
-SOCKET_PATTERN = re.compile(r"^socket:\[(\d+)\]$")
+from common.linux.remote import ssh
 
 
-def inspect_process_sockets(pid):
-  """
-  Trova tutti i socket aperti da un processo.
+SOCKET_PATTERN = re.compile(
+  r"^socket:\[(\d+)\]$"
+)
 
-  Relazione:
-    PID -> FD -> inode
-  """
+
+def inspect_sockets(host):
+  # Costruisce l'host SSH remoto.
+  ssh_host = f"dprandi@{host}"
+
+  # Cerca tutti i socket aperti sul nodo remoto.
+  output = ssh.execute(
+    ssh_host,
+    r"""
+    for pid in /proc/[0-9]*; do
+      for fd in "$pid"/fd/*; do
+        target=$(readlink "$fd" 2>/dev/null)
+
+        case "$target" in
+          socket:\[*\])
+            inode=$(echo "$target" | tr -cd '0-9')
+            echo "${pid##*/} ${fd##*/} $inode"
+            ;;
+        esac
+      done
+    done
+    """
+  )
 
   sockets = []
 
-  # Directory contenente i file descriptor del processo.
-  fd_path = f"/proc/{pid}/fd"
+  for line in output.splitlines():
+    fields = line.split()
 
-  try:
-    file_descriptors = os.listdir(fd_path)
-  except (
-    FileNotFoundError,
-    PermissionError,
-    ProcessLookupError,
-  ):
-    return sockets
-
-  # Analizza ogni file descriptor.
-  for fd in file_descriptors:
-    link_path = f"{fd_path}/{fd}"
-
-    try:
-      # Legge a cosa punta il file descriptor.
-      target = os.readlink(link_path)
-    except (
-      FileNotFoundError,
-      PermissionError,
-      ProcessLookupError,
-      OSError,
-    ):
+    if len(fields) != 3:
       continue
 
-    # Verifica se il file descriptor punta a un socket.
-    match = SOCKET_PATTERN.match(target)
+    pid, fd, inode = fields
 
-    if not match:
+    if not SOCKET_PATTERN.match(f"socket:[{inode}]"):
       continue
 
-    # Estrae l'inode dal valore socket:[inode].
-    inode = int(match.group(1))
-
-    # Registra la relazione processo -> FD -> inode.
     sockets.append(
       {
         "pid": int(pid),
         "fd": int(fd),
-        "inode": inode,
+        "inode": int(inode)
       }
     )
 
   return sockets
 
 
-def inspect_socket_inode(inode):
-  """
-  Cerca quale processo possiede un determinato socket inode.
+def inspect_socket_inode(host, inode):
+  # Costruisce l'host SSH remoto.
+  ssh_host = f"dprandi@{host}"
 
-  Relazione:
-    inode -> PID -> FD
-  """
+  # Cerca il processo e il file descriptor associati all'inode.
+  output = ssh.execute(
+    ssh_host,
+    f"""
+    for pid in /proc/[0-9]*; do
+      for fd in "$pid"/fd/*; do
+        target=$(readlink "$fd" 2>/dev/null)
+
+        if [ "$target" = "socket:[{inode}]" ]; then
+          echo "${{pid##*/}} ${{fd##*/}} {inode}"
+        fi
+      done
+    done
+    """
+  )
 
   matches = []
 
-  # /proc contiene una directory per ogni processo.
-  proc_path = "/proc"
+  for line in output.splitlines():
+    fields = line.split()
 
-  for pid in os.listdir(proc_path):
-
-    # Ignora le directory che non rappresentano PID.
-    if not pid.isdigit():
+    if len(fields) != 3:
       continue
 
-    # Directory dei file descriptor del processo.
-    fd_path = f"{proc_path}/{pid}/fd"
+    pid, fd, socket_inode = fields
 
-    try:
-      file_descriptors = os.listdir(fd_path)
-    except (
-      FileNotFoundError,
-      PermissionError,
-      ProcessLookupError,
-    ):
-      continue
-
-    # Analizza i file descriptor del processo.
-    for fd in file_descriptors:
-      link_path = f"{fd_path}/{fd}"
-
-      try:
-        # Legge il target del file descriptor.
-        target = os.readlink(link_path)
-      except (
-        FileNotFoundError,
-        PermissionError,
-        ProcessLookupError,
-        OSError,
-      ):
-        continue
-
-      # Cerca il socket con l'inode richiesto.
-      if target != f"socket:[{inode}]":
-        continue
-
-      # Abbiamo trovato il processo e il FD
-      # proprietari del socket.
-      matches.append(
-        {
-          "pid": int(pid),
-          "fd": int(fd),
-          "inode": int(inode),
-        }
-      )
+    matches.append(
+      {
+        "pid": int(pid),
+        "fd": int(fd),
+        "inode": int(socket_inode)
+      }
+    )
 
   return matches

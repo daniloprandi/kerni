@@ -4,6 +4,9 @@ from common.database import get_connection
 from common.linux.node_discovery import discovery
 
 
+ping_counts = {}
+
+
 def register_ping(src_ip, dest_ip):
   # Apre una connessione al database.
   con = get_connection()
@@ -50,20 +53,29 @@ def listen_for_ping():
       line
     )
 
-    if match:
-      source_ip = match.group(1)
-      destination_ip = match.group(2)
+    if not match:
+      continue
 
-      # Mostra il ping osservato.
-      print(
-        f"PING: {source_ip} -> {destination_ip}",
-        flush=True
-      )
+    source_ip = match.group(1)
+    destination_ip = match.group(2)
 
-      # Registra ogni singolo ping nel database.
-      register_ping(source_ip, destination_ip)
+    # Mostra il ping osservato.
+    print(
+      f"PING: {source_ip} -> {destination_ip}",
+      flush=True
+    )
 
-      # Avvia la discovery solamente se il ping
-      # proviene da un nodo remoto.
-      if source_ip != "192.168.200.130":
-        discovery.run(source_ip)
+    # Registra ogni singolo ping nel database.
+    register_ping(source_ip, destination_ip)
+
+    # Ignora il traffico generato dal nodo locale.
+    if source_ip == "192.168.200.130":
+      continue
+
+    # Incrementa il contatore dei ping ricevuti dal nodo remoto.
+    ping_counts[source_ip] = ping_counts.get(source_ip, 0) + 1
+
+    # Avvia la discovery ogni tre ping.
+    if ping_counts[source_ip] == 3:
+      discovery.run(source_ip)
+      ping_counts[source_ip] = 0
