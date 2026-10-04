@@ -1,3 +1,10 @@
+
+psql -h 192.168.200.131 -U kerni -d kernidata
+pw kerni 
+
+--
+
+
 TRUNCATE TABLE cmdb.nodes RESTART IDENTITY CASCADE;
 TRUNCATE TABLE tcpip.transport_connections RESTART IDENTITY CASCADE;
 TRUNCATE TABLE tcpip.ping RESTART IDENTITY CASCADE;
@@ -18,6 +25,23 @@ SELECT * FROM tcpip.transport_connections
 --WHERE src_ip::text like '%.131%' -- data node
 WHERE src_ip::text like '%.133%' -- void-node
 --ORDER BY
+
+--
+
+===============================================================================
+CONTEGGIO RECORD
+===============================================================================
+
+SELECT 'cmdb.nodes' AS tabella, COUNT(*) FROM cmdb.nodes
+UNION ALL
+SELECT 'tcpip.ping', COUNT(*) FROM tcpip.ping
+UNION ALL
+SELECT 'kernel.processes', COUNT(*) FROM kernel.processes
+UNION ALL
+SELECT 'kernel.sockets', COUNT(*) FROM kernel.sockets
+UNION ALL
+SELECT 'tcpip.transport_connections', COUNT(*) FROM tcpip.transport_connections;
+
 --
 
 SELECT
