@@ -8,6 +8,7 @@ from . import repository
 
 
 def inspect_transport_layer(host, node_id):
+
   # Costruisce l'host SSH remoto.
   ssh_host = f"dprandi@{host}"
 
@@ -19,6 +20,7 @@ def inspect_transport_layer(host, node_id):
     for pid in /proc/[0-9]*; do
       for fd in "$pid"/fd/*; do
         target=$(readlink "$fd" 2>/dev/null)
+
         case "$target" in
           socket:\[*\])
             inode=$(echo "$target" | tr -cd '0-9')
@@ -34,6 +36,7 @@ def inspect_transport_layer(host, node_id):
   socket_map = {}
 
   for line in socket_output.splitlines():
+
     fields = line.split()
 
     if len(fields) != 3:
@@ -140,27 +143,39 @@ def inspect_transport_layer(host, node_id):
     )
   )
 
-  # Associa ogni connessione al nodo.
+  # Associa ogni connessione al nodo
+  # e solamente alle socket effettivamente
+  # presenti nella socket discovery.
+  valid_connections = []
+
   for connection in connections:
+
     connection["node_id"] = node_id
 
-    # Associa inode, PID e file descriptor.
     inode = connection.get("inode")
     socket = socket_map.get(inode)
 
-    if socket:
-      connection["pid"] = socket["pid"]
-      connection["fd"] = socket["fd"]
+    # La FK richiede che (node_id, inode)
+    # esista in kernel.sockets.
+    if not socket:
+      continue
 
-  # Salva le connessioni.
-  repository.insert_all(connections)
+    connection["pid"] = socket["pid"]
+    connection["fd"] = socket["fd"]
+
+    valid_connections.append(connection)
+
+  # Salva solamente connessioni con una
+  # socket corrispondente.
+  repository.insert_all(valid_connections)
 
   return {
-    "connections": connections
+    "connections": valid_connections
   }
 
 
 def run(host, node_id):
+
   # Avvia la discovery del Transport Layer.
   return inspect_transport_layer(
     host,

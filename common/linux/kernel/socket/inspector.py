@@ -9,10 +9,16 @@ SOCKET_PATTERN = re.compile(
 
 
 def inspect_sockets(host):
-  # Costruisce l'host SSH remoto.
+
   ssh_host = f"dprandi@{host}"
 
-  # Cerca tutti i socket aperti sul nodo remoto.
+  # Inode -> PID/FD
+  socket_map = {}
+
+  # ---------------------------------------------------------
+  # 1. Cerca i socket attraverso /proc/[pid]/fd/*
+  # ---------------------------------------------------------
+
   output = ssh.execute(
     ssh_host,
     r"""
@@ -31,9 +37,8 @@ def inspect_sockets(host):
     """
   )
 
-  sockets = []
-
   for line in output.splitlines():
+
     fields = line.split()
 
     if len(fields) != 3:
@@ -44,11 +49,70 @@ def inspect_sockets(host):
     if not SOCKET_PATTERN.match(f"socket:[{inode}]"):
       continue
 
+    socket_map[int(inode)] = {
+      "pid": int(pid),
+      "fd": int(fd),
+    }
+
+  # ---------------------------------------------------------
+  # 2. Cerca anche gli inode direttamente in /proc/net/*
+  # ---------------------------------------------------------
+
+  net_output = ssh.execute(
+    ssh_host,
+    r"""
+    for file in \
+      /proc/net/tcp \
+      /proc/net/tcp6 \
+      /proc/net/udp \
+      /proc/net/udp6 \
+      /proc/net/raw \
+      /proc/net/raw6
+    do
+      if [ -r "$file" ]; then
+        awk 'NR > 1 {print $10}' "$file"
+      fi
+    done
+
+    if [ -r /proc/net/unix ]; then
+      awk 'NR > 1 {print $7}' /proc/net/unix
+    fi
+    """
+  )
+
+  # Aggiunge gli inode che non erano visibili
+  # attraverso /proc/[pid]/fd/*.
+  for line in net_output.splitlines():
+
+    line = line.strip()
+
+    if not line.isdigit():
+      continue
+
+    inode = int(line)
+
+    if inode <= 0:
+      continue
+
+    if inode not in socket_map:
+      socket_map[inode] = {
+        "pid": None,
+        "fd": None,
+      }
+
+  # ---------------------------------------------------------
+  # 3. Costruisce il risultato finale
+  # ---------------------------------------------------------
+
+  sockets = []
+
+  for inode, data in socket_map.items():
+
     sockets.append(
       {
-        "pid": int(pid),
-        "fd": int(fd),
-        "inode": int(inode)
+        "pid": data["pid"],
+        "fd": data["fd"],
+        "inode": inode,
       }
     )
 
@@ -56,10 +120,9 @@ def inspect_sockets(host):
 
 
 def inspect_socket_inode(host, inode):
-  # Costruisce l'host SSH remoto.
+
   ssh_host = f"dprandi@{host}"
 
-  # Cerca il processo e il file descriptor associati all'inode.
   output = ssh.execute(
     ssh_host,
     f"""
@@ -78,6 +141,7 @@ def inspect_socket_inode(host, inode):
   matches = []
 
   for line in output.splitlines():
+
     fields = line.split()
 
     if len(fields) != 3:
@@ -89,7 +153,7 @@ def inspect_socket_inode(host, inode):
       {
         "pid": int(pid),
         "fd": int(fd),
-        "inode": int(socket_inode)
+        "inode": int(socket_inode),
       }
     )
 
