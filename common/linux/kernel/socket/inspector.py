@@ -10,7 +10,7 @@ SOCKET_PATTERN = re.compile(
 
 def inspect_sockets(host):
 
-  ssh_host = f"dprandi@{host}"
+  ssh_host = host
 
   # Inode -> PID/FD
   socket_map = {}
@@ -121,7 +121,7 @@ def inspect_sockets(host):
 
 def inspect_socket_inode(host, inode):
 
-  ssh_host = f"dprandi@{host}"
+  ssh_host = host
 
   output = ssh.execute(
     ssh_host,

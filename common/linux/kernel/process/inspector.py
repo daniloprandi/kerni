@@ -201,7 +201,7 @@ inspect_processes()
 
 def inspect_processes(host):
   # Costruisce l'host SSH remoto.
-  ssh_host = f"dprandi@{host}"
+  ssh_host = host
 
   # Codifica lo script remoto.
   encoded_script = base64.b64encode(
