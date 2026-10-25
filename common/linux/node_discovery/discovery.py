@@ -9,6 +9,9 @@ from common.linux.kernel.process import repository as process_repository
 from common.linux.kernel.socket import inspector as socket_inspector
 from common.linux.kernel.socket import repository as socket_repository
 from common.linux.tcp_ip.transport_layer import inspector as transport_inspector
+# Importazione dell'inspector e del repository per il Data Link Layer
+from common.linux.tcp_ip.data_link_layer import inspector as data_link_inspector
+from common.linux.tcp_ip.data_link_layer import repository as data_link_repository
 
 import json
 
@@ -16,24 +19,24 @@ import json
 def run(host):
   # Raccoglie le informazioni del nodo remoto.
   node = {
-    "hostname": hostname.get(host),
-    "ip_addr": ip.get(host),
-    "os_name": os.get_name(host),
-    "os_v": os.get_version(host),
-    "kernel_v": kernel.get(host),
-    "status": ""
+    'hostname': hostname.get(host),
+    'ip_addr': ip.get(host),
+    'os_name': os.get_name(host),
+    'os_v': os.get_version(host),
+    'kernel_v': kernel.get(host),
+    'status': ''
   }
 
   # Verifica se il nodo è già registrato nella CMDB.
-  if repository.get_by_hostname(node["hostname"]):
+  if repository.get_by_hostname(node['hostname']):
     repository.update(node)
-    node["status"] = "already_registered"
+    node['status'] = 'already_registered'
   else:
     repository.insert(node)
-    node["status"] = "registered"
+    node['status'] = 'registered'
 
   # Recupera il node_id.
-  node_record = repository.get_by_hostname(node["hostname"])
+  node_record = repository.get_by_hostname(node['hostname'])
   node_id = node_record[0]
 
   # Discovery dei processi.
@@ -46,13 +49,13 @@ def run(host):
     )
 
     print(
-      f"Processes discovered: {len(processes)}",
+      f'Processes discovered: {len(processes)}',
       flush=True
     )
 
   except Exception as error:
     print(
-      f"Process discovery failed for {host}: {error}",
+      f'Process discovery failed for {host}: {error}',
       flush=True
     )
 
@@ -66,13 +69,13 @@ def run(host):
     )
 
     print(
-      f"Sockets discovered: {len(sockets)}",
+      f'Sockets discovered: {len(sockets)}',
       flush=True
     )
 
   except Exception as error:
     print(
-      f"Socket discovery failed for {host}: {error}",
+      f'Socket discovery failed for {host}: {error}',
       flush=True
     )
 
@@ -85,7 +88,27 @@ def run(host):
 
   except Exception as error:
     print(
-      f"Transport Layer discovery failed for {host}: {error}",
+      f'Transport Layer discovery failed for {host}: {error}',
+      flush=True
+    )
+
+  # Discovery del Data Link Layer (Livello 2).
+  try:
+    data_link_records = data_link_inspector.inspect_data_link()
+
+    data_link_repository.save_data_link_data(
+      node_id,
+      data_link_records
+    )
+
+    print(
+      f'Data Link Layer discovered: {len(data_link_records)} interfaces',
+      flush=True
+    )
+
+  except Exception as error:
+    print(
+      f'Data Link Layer discovery failed for {host}: {error}',
       flush=True
     )
 
