@@ -4,9 +4,9 @@ from common.database import get_connection
 # Funzione per salvare le interfacce rilevate nella tabella PostgreSQL
 def save_data_link_data(node_id, data_link_records):
   # Creazione dell'oggetto di connessione verso il database
-  conn = get_connection()
+  con = get_connection()
   # Creazione del cursore per eseguire i comandi SQL
-  cursor = conn.cursor()
+  cursor = con.cursor()
   try:
     # Scansione di ciascun record presente nella lista da inserire
     for record in data_link_records:
@@ -24,14 +24,14 @@ def save_data_link_data(node_id, data_link_records):
         record['tx_bytes']
       ))
     # Conferma la transazione scrivendo le modifiche nel DB
-    conn.commit()
+    con.commit()
   except Exception as e:
     # In caso di errore annulla tutte le modifiche pendenti della transazione
-    conn.rollback()
+    con.rollback()
     # Rilancia l'eccezione per la gestione a livello superiore
     raise e
   finally:
     # Chiusura del cursore SQL
     cursor.close()
     # Rilascio e chiusura della connessione al database
-    conn.close()
+    con.close()
