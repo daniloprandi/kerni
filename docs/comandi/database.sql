@@ -2,6 +2,57 @@
 psql -h 192.168.200.131 -U kerni -d kernidata
 pw kerni 
 
+SELECT 
+    n.id,
+    n.hostname,
+    
+    -- Layer 2: Network Interfaces & Stats
+    ni.interface AS net_interface,
+    ni.ip_address AS net_ip,
+    ni.mac_address AS net_mac,
+    ist.rx_bytes,
+    ist.tx_bytes,
+    ist.rx_errors,
+    ist.tx_errors,
+    
+    -- Layer 2/3: ARP Table
+    arp.ip_address AS arp_target_ip,
+    arp.mac_address AS arp_target_mac,
+    
+    -- Layer 3: Routing Table
+    rt.destination AS route_destination,
+    rt.gateway AS route_gateway,
+    rt.netmask AS route_netmask,
+    
+    -- Layer 4: Transport Connections
+    tc.proto AS transport_proto,
+    tc.src_ip AS conn_src_ip,
+    tc.src_port AS conn_src_port,
+    tc.dst_ip AS conn_dst_ip,
+    tc.dst_port AS conn_dst_port,
+    tc.state AS conn_state,
+    
+    -- Kernel Layer: Processes
+    p.pid AS process_pid,
+    p.name AS process_name,
+    
+    -- Application Layer: Systemd Services
+    s.unit AS systemd_service,
+    s.active_state AS systemd_state
+
+FROM cmdb.nodes n
+LEFT JOIN tcpip.network_interfaces ni ON n.id = ni.node_id
+LEFT JOIN tcpip.interface_stats ist ON ni.node_id = ist.node_id AND ni.interface = ist.interface
+LEFT JOIN tcpip.arp_table arp ON n.id = arp.node_id
+LEFT JOIN tcpip.routing_table rt ON n.id = rt.node_id
+LEFT JOIN tcpip.transport_connections tc ON n.id = tc.node_id
+LEFT JOIN kernel.processes p ON n.id = p.node_id
+LEFT JOIN application.systemd_services s ON n.id = s.node_id
+
+ORDER BY n.id
+
+limit 100;
+
 --------------------------------------------------------------------------------
 -- 1. RESET AMBIENTE DI TEST (TRUNCATE)
 --------------------------------------------------------------------------------
