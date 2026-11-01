@@ -101,9 +101,9 @@ def run(host):
       flush=True
     )
 
-  # Discovery del Data Link Layer (Livello 2).
+  # Discovery del Data Link Layer (Livello 2) - Corretto per passare l'host remoto.
   try:
-    data_link_records = data_link_inspector.inspect_data_link()
+    data_link_records = data_link_inspector.inspect_data_link(host)
 
     data_link_repository.save_data_link_data(
       node_id,
@@ -121,9 +121,9 @@ def run(host):
       flush=True
     )
 
-  # Discovery del Network / Internet Layer - ARP (Livello 3).
+  # Discovery del Network / Internet Layer - ARP (Livello 3) - Corretto per passare l'host remoto.
   try:
-    arp_records = arp_inspector.inspect_arp()
+    arp_records = arp_inspector.inspect_arp(host)
 
     arp_repository.save_arp_data(
       node_id,
@@ -141,9 +141,9 @@ def run(host):
       flush=True
     )
 
-  # Discovery dell'Application Layer - Systemd Services (Livello 7).
+  # Discovery dell'Application Layer - Systemd Services (Livello 7) - Corretto per passare l'host remoto.
   try:
-    systemd_records = systemd_inspector.inspect_systemd()
+    systemd_records = systemd_inspector.inspect_systemd(host)
 
     systemd_repository.save_systemd_services(
       node_id,

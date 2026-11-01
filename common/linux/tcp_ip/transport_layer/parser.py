@@ -1,5 +1,6 @@
 import ipaddress
 import socket
+import struct
 
 from common.linux.users import user
 
@@ -19,9 +20,12 @@ def parse_ip(ip):
 
 # Convert a hexadecimal IPv6 address to standard notation.
 def parse_ip6(ip):
+  if len(ip) != 32:
+    raise ValueError(f"Stringa IPv6 esadecimale non valida (lunghezza {len(ip)} invece di 32): {ip}")
 
-  # Convert the hexadecimal value into bytes.
-  ip_bytes = bytes.fromhex(ip)
+  # Il kernel Linux memorizza gli indirizzi IPv6 in /proc/net/tcp6 come 4 dword a 32 bit in little-endian
+  words = [int(ip[i:i+8], 16) for i in range(0, 32, 8)]
+  ip_bytes = struct.pack('<IIII', *words)
 
   # Return the IPv6 address.
   return str(ipaddress.IPv6Address(ip_bytes))
