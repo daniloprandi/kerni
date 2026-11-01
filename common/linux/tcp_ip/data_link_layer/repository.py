@@ -1,37 +1,34 @@
-# Importazione della funzione per ottenere la connessione al database
+# Modulo di persistenza per il Data Link Layer (Interfacce di rete)
 from common.database import get_connection
 
-# Funzione per salvare le interfacce rilevate nella tabella PostgreSQL
-def save_data_link_data(node_id, data_link_records):
-  # Creazione dell'oggetto di connessione verso il database
+def save_data_link_data(node_id, records):
+  # Ottiene la connessione attiva al database
   con = get_connection()
-  # Creazione del cursore per eseguire i comandi SQL
   cursor = con.cursor()
   try:
-    # Scansione di ciascun record presente nella lista da inserire
-    for record in data_link_records:
-      # Esecuzione della query di INSERT con i nuovi campi abbreviati
-      cursor.execute('''
-        INSERT INTO tcpip.network_interfaces 
-        (node_id, iface, eth_addr, state, rx_bytes, tx_bytes)
+    # Itera sui record e inserisce i dati gestendo i fallback delle chiavi
+    for record in records:
+      cursor.execute(
+        """
+        INSERT INTO tcpip.network_interfaces (node_id, iface, eth_addr, state, rx_bytes, tx_bytes)
         VALUES (%s, %s, %s, %s, %s, %s)
-      ''', (
-        node_id,
-        record['iface'],
-        record['eth_addr'],
-        record['state'],
-        record['rx_bytes'],
-        record['tx_bytes']
-      ))
-    # Conferma la transazione scrivendo le modifiche nel DB
+        """,
+        (
+          node_id,
+          record.get('iface') or record.get('interface_name') or record.get('name'),
+          record.get('eth_addr') or record.get('mac_address'),
+          record.get('state'),
+          record.get('rx_bytes', 0),
+          record.get('tx_bytes', 0)
+        )
+      )
+    # Esegue il commit delle modifiche transazionali
     con.commit()
   except Exception as e:
-    # In caso di errore annulla tutte le modifiche pendenti della transazione
+    # Effettua il rollback in caso di errore SQL
     con.rollback()
-    # Rilancia l'eccezione per la gestione a livello superiore
     raise e
   finally:
-    # Chiusura del cursore SQL
+    # Chiude in modo sicuro cursore e connessione
     cursor.close()
-    # Rilascio e chiusura della connessione al database
     con.close()

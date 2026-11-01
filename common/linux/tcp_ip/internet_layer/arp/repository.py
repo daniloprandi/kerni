@@ -1,41 +1,33 @@
-# Modulo Repository per la persistenza dei dati ARP su database PostgreSQL
-
+# Modulo di persistenza per la tabella ARP (Internet Layer)
 from common.database import get_connection
 
-
-def save_arp_data(node_id, arp_records):
-  """
-  Salva i record ARP rilevati all'interno della tabella relazionale 
-  dedicata nel database PostgreSQL (tcpip.arp_table).
-  """
-  # Ottiene la connessione standard condivisa dal modulo di database
+def save_arp_data(node_id, records):
+  # Ottiene la connessione attiva al database
   con = get_connection()
   cursor = con.cursor()
-  
   try:
-    # Esegue l'inserimento ciclico o batch dei record associati al nodo
-    for record in arp_records:
-      cursor.execute('''
-        INSERT INTO tcpip.arp_table 
-        (node_id, ip_addr, mac_addr, iface, flags)
+    # Itera sui record ARP mappando correttamente le colonne del DB
+    for record in records:
+      cursor.execute(
+        """
+        INSERT INTO tcpip.arp_table (node_id, ip_addr, mac_addr, iface, flags)
         VALUES (%s, %s, %s, %s, %s)
-      ''', (
-        node_id,
-        record['ip_addr'],
-        record['mac_addr'],
-        record['iface'],
-        record['flags']
-      ))
-      
-    # Conferma definitiva della transazione sul database
+        """,
+        (
+          node_id,
+          record.get('ip_addr') or record.get('ip_address'),
+          record.get('mac_addr') or record.get('mac_address'),
+          record.get('iface') or record.get('interface'),
+          record.get('flags')
+        )
+      )
+    # Finalizza la transazione con il commit
     con.commit()
-    
   except Exception as e:
-    # Annulla le modifiche in caso di errore critico (rollback)
+    # Annulla la transazione in caso di fallimento
     con.rollback()
     raise e
-    
   finally:
-    # Chiusura sicura del cursore e rilascio della connessione
+    # Rilascia le risorse aperte
     cursor.close()
     con.close()
