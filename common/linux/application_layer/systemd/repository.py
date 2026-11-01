@@ -1,16 +1,27 @@
 # Modulo di persistenza per i servizi Systemd (Application Layer)
 from common.database import get_connection
 
+
 def save_systemd_services(node_id, records):
-  # Apre la connessione al database
+  # Non elimina dati esistenti quando la raccolta è vuota o fallita.
+  if not records:
+    return
+
   con = get_connection()
   cursor = con.cursor()
   try:
-    # Salva ogni servizio systemd mappando correttamente le colonne del DB
+    # Sostituisce lo snapshot dei servizi del nodo in modo atomico.
+    cursor.execute(
+      "DELETE FROM application.systemd_services WHERE node_id = %s",
+      (node_id,)
+    )
+
+    # Inserisce i servizi rilevati.
     for record in records:
       cursor.execute(
         """
-        INSERT INTO application.systemd_services (node_id, unit, load_state, active_state, sub_state, description)
+        INSERT INTO application.systemd_services
+          (node_id, unit, load_state, active_state, sub_state, description)
         VALUES (%s, %s, %s, %s, %s, %s)
         """,
         (
@@ -22,13 +33,13 @@ def save_systemd_services(node_id, records):
           record.get('description')
         )
       )
-    # Conferma la transazione
+
+    # Conferma insieme eliminazione e inserimento.
     con.commit()
-  except Exception as e:
-    # In caso di eccezione esegue il rollback dei dati
+  except Exception:
+    # Ripristina lo snapshot precedente in caso di errore.
     con.rollback()
-    raise e
+    raise
   finally:
-    # Chiude cursore e connessione per evitare resource leaks
     cursor.close()
     con.close()

@@ -1,16 +1,27 @@
 # Modulo di persistenza per la tabella ARP (Internet Layer)
 from common.database import get_connection
 
+
 def save_arp_data(node_id, records):
-  # Ottiene la connessione attiva al database
+  # Non elimina dati esistenti quando la raccolta è vuota o fallita.
+  if not records:
+    return
+
   con = get_connection()
   cursor = con.cursor()
   try:
-    # Itera sui record ARP mappando correttamente le colonne del DB
+    # Sostituisce lo snapshot ARP del nodo in modo atomico.
+    cursor.execute(
+      "DELETE FROM tcpip.arp_table WHERE node_id = %s",
+      (node_id,)
+    )
+
+    # Inserisce le nuove entry ARP.
     for record in records:
       cursor.execute(
         """
-        INSERT INTO tcpip.arp_table (node_id, ip_addr, mac_addr, iface, flags)
+        INSERT INTO tcpip.arp_table
+          (node_id, ip_addr, mac_addr, iface, flags)
         VALUES (%s, %s, %s, %s, %s)
         """,
         (
@@ -21,13 +32,13 @@ def save_arp_data(node_id, records):
           record.get('flags')
         )
       )
-    # Finalizza la transazione con il commit
+
+    # Conferma insieme eliminazione e inserimento.
     con.commit()
-  except Exception as e:
-    # Annulla la transazione in caso di fallimento
+  except Exception:
+    # Ripristina lo snapshot precedente in caso di errore.
     con.rollback()
-    raise e
+    raise
   finally:
-    # Rilascia le risorse aperte
     cursor.close()
     con.close()

@@ -1,16 +1,28 @@
 # Modulo di persistenza per il Data Link Layer (Interfacce di rete)
 from common.database import get_connection
 
+
 def save_data_link_data(node_id, records):
-  # Ottiene la connessione attiva al database
+  # Non sostituisce lo snapshot se la raccolta non ha prodotto dati.
+  # In questo modo un errore del collector non cancella dati validi.
+  if not records:
+    return
+
   con = get_connection()
   cursor = con.cursor()
   try:
-    # Itera sui record e inserisce i dati gestendo i fallback delle chiavi
+    # Sostituisce lo snapshot del nodo nella stessa transazione.
+    cursor.execute(
+      "DELETE FROM tcpip.network_interfaces WHERE node_id = %s",
+      (node_id,)
+    )
+
+    # Inserisce lo snapshot appena raccolto.
     for record in records:
       cursor.execute(
         """
-        INSERT INTO tcpip.network_interfaces (node_id, iface, eth_addr, state, rx_bytes, tx_bytes)
+        INSERT INTO tcpip.network_interfaces
+          (node_id, iface, eth_addr, state, rx_bytes, tx_bytes)
         VALUES (%s, %s, %s, %s, %s, %s)
         """,
         (
@@ -22,13 +34,13 @@ def save_data_link_data(node_id, records):
           record.get('tx_bytes', 0)
         )
       )
-    # Esegue il commit delle modifiche transazionali
+
+    # Conferma insieme eliminazione e inserimento.
     con.commit()
-  except Exception as e:
-    # Effettua il rollback in caso di errore SQL
+  except Exception:
+    # Ripristina anche i record eliminati se l'inserimento fallisce.
     con.rollback()
-    raise e
+    raise
   finally:
-    # Chiude in modo sicuro cursore e connessione
     cursor.close()
     con.close()
