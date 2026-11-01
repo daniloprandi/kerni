@@ -7,7 +7,6 @@ from common.linux.users import user
 
 # Convert a hexadecimal IPv4 address to dotted notation.
 def parse_ip(ip):
-
   # Convert the hexadecimal value into bytes.
   ip_bytes = bytes.fromhex(ip)
 
@@ -20,28 +19,39 @@ def parse_ip(ip):
 
 # Convert a hexadecimal IPv6 address to standard notation.
 def parse_ip6(ip):
+  # Validate the expected length of a 128-bit IPv6 address.
   if len(ip) != 32:
-    raise ValueError(f"Stringa IPv6 esadecimale non valida (lunghezza {len(ip)} invece di 32): {ip}")
+    raise ValueError(
+      f"Invalid IPv6 hexadecimal length: {len(ip)} (expected 32): {ip}"
+    )
 
-  # Il kernel Linux memorizza gli indirizzi IPv6 in /proc/net/tcp6 come 4 dword a 32 bit in little-endian
-  words = [int(ip[i:i+8], 16) for i in range(0, 32, 8)]
-  ip_bytes = struct.pack('<IIII', *words)
+  try:
+    # Linux stores four 32-bit words in little-endian byte order.
+    words = [
+      int(ip[i:i + 8], 16)
+      for i in range(0, 32, 8)
+    ]
 
-  # Return the IPv6 address.
+    # Reconstruct the 16 address bytes.
+    ip_bytes = struct.pack("<IIII", *words)
+
+  except (ValueError, struct.error) as error:
+    # Report malformed hexadecimal input.
+    raise ValueError(f"Invalid IPv6 hexadecimal address: {ip}") from error
+
+  # Validate and format the IPv6 address.
   return str(ipaddress.IPv6Address(ip_bytes))
 
 
 # Convert a hexadecimal port into decimal.
 def parse_port(port):
-
   # Return the decimal port.
   return int(port, 16)
 
 
 # Parse an IPv4 endpoint.
 def parse_endpoint(endpoint):
-
-  # Split IP and port.
+  # Split the IP address and port.
   ip, port = endpoint.split(":")
 
   # Return the parsed endpoint.
@@ -50,8 +60,7 @@ def parse_endpoint(endpoint):
 
 # Parse an IPv6 endpoint.
 def parse_endpoint6(endpoint):
-
-  # Split IP and port.
+  # Split the IP address and port.
   ip, port = endpoint.split(":")
 
   # Return the parsed endpoint.
@@ -60,10 +69,8 @@ def parse_endpoint6(endpoint):
 
 # Parse a Linux TCP state.
 def parse_transport_state(state):
-
   # Linux transport states.
   states = {
-
     "01": "ESTABLISHED",
     "02": "SYN_SENT",
     "03": "SYN_RECV",
@@ -74,8 +81,7 @@ def parse_transport_state(state):
     "08": "CLOSE_WAIT",
     "09": "LAST_ACK",
     "0A": "LISTEN",
-    "0B": "CLOSING"
-
+    "0B": "CLOSING",
   }
 
   # Return the parsed state.
@@ -84,14 +90,11 @@ def parse_transport_state(state):
 
 # Parse a UNIX socket type.
 def parse_unix_type(socket_type):
-
   # Linux UNIX socket types.
   types = {
-
     "0001": "STREAM",
     "0002": "DGRAM",
-    "0005": "SEQPACKET"
-
+    "0005": "SEQPACKET",
   }
 
   # Return the parsed type.
@@ -100,15 +103,12 @@ def parse_unix_type(socket_type):
 
 # Parse a UNIX socket state.
 def parse_unix_state(state):
-
   # Linux UNIX socket states.
   states = {
-
     "01": "UNCONNECTED",
     "02": "CONNECTING",
     "03": "CONNECTED",
-    "04": "DISCONNECTING"
-
+    "04": "DISCONNECTING",
   }
 
   # Return the parsed state.
@@ -117,7 +117,6 @@ def parse_unix_state(state):
 
 # Parse an IPv4 transport table.
 def parse_transport(lines, proto):
-
   # Ignore the header.
   lines = lines[1:]
 
@@ -126,9 +125,12 @@ def parse_transport(lines, proto):
 
   # Parse every entry.
   for line in lines:
-
     # Split the columns.
     fields = line.split()
+
+    # Skip malformed rows.
+    if len(fields) < 10:
+      continue
 
     # Parse the source endpoint.
     src_ip, src_port = parse_endpoint(fields[1])
@@ -144,29 +146,18 @@ def parse_transport(lines, proto):
 
     # Store the parsed connection.
     connections.append({
-
       "proto": proto,
-
       "src_ip": src_ip,
       "src_port": src_port,
-
       "dst_ip": dst_ip,
       "dst_port": dst_port,
-
       "state": parse_transport_state(fields[3]),
-
       "uid": uid,
-
       "username": username,
-
       "inode": int(fields[9]),
-
       "type": None,
-
       "flags": None,
-
-      "path": None
-
+      "path": None,
     })
 
   # Return the parsed connections.
@@ -175,7 +166,6 @@ def parse_transport(lines, proto):
 
 # Parse an IPv6 transport table.
 def parse_transport6(lines, proto):
-
   # Ignore the header.
   lines = lines[1:]
 
@@ -184,9 +174,12 @@ def parse_transport6(lines, proto):
 
   # Parse every entry.
   for line in lines:
-
     # Split the columns.
     fields = line.split()
+
+    # Skip malformed rows.
+    if len(fields) < 10:
+      continue
 
     # Parse the source endpoint.
     src_ip, src_port = parse_endpoint6(fields[1])
@@ -202,29 +195,18 @@ def parse_transport6(lines, proto):
 
     # Store the parsed connection.
     connections.append({
-
       "proto": proto,
-
       "src_ip": src_ip,
       "src_port": src_port,
-
       "dst_ip": dst_ip,
       "dst_port": dst_port,
-
       "state": parse_transport_state(fields[3]),
-
       "uid": uid,
-
       "username": username,
-
       "inode": int(fields[9]),
-
       "type": None,
-
       "flags": None,
-
-      "path": None
-
+      "path": None,
     })
 
   # Return the parsed connections.
@@ -233,7 +215,6 @@ def parse_transport6(lines, proto):
 
 # Parse the Linux UNIX table.
 def parse_unix(lines, proto):
-
   # Ignore the header.
   lines = lines[1:]
 
@@ -242,7 +223,6 @@ def parse_unix(lines, proto):
 
   # Parse every entry.
   for line in lines:
-
     # Split the columns.
     fields = line.split()
 
@@ -250,7 +230,7 @@ def parse_unix(lines, proto):
     if len(fields) < 7:
       continue
 
-    # Read the socket path.
+    # Read the optional socket path.
     path = None
 
     if len(fields) > 7:
@@ -264,29 +244,18 @@ def parse_unix(lines, proto):
 
     # Store the parsed socket.
     connections.append({
-
       "proto": proto,
-
       "src_ip": None,
       "src_port": None,
-
       "dst_ip": None,
       "dst_port": None,
-
       "state": parse_unix_state(fields[5]),
-
       "uid": uid,
-
       "username": username,
-
       "inode": int(fields[6]),
-
       "type": parse_unix_type(fields[4]),
-
       "flags": fields[3],
-
-      "path": path
-
+      "path": path,
     })
 
   # Return the parsed sockets.
